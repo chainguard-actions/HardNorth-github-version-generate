@@ -1,0 +1,34 @@
+name: Test version from file
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          version-source: file
+          version-file: ${{ github.workspace }}/actions/hardened/HardNorth--github-version-generate/v1.4.1/tests/fixtures/version.properties
+          version-file-extraction-pattern: '(?<=version=).+'
+      - name: Assert CURRENT_VERSION
+        env:
+          ACTUAL: ${{ steps.action.outputs.CURRENT_VERSION }}
+        run: |
+          echo "actual CURRENT_VERSION: $ACTUAL"
+          if [ "$ACTUAL" != "2.5.0-SNAPSHOT" ]; then
+            echo "FAIL: expected CURRENT_VERSION to be '2.5.0-SNAPSHOT', got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+      - name: Assert RELEASE_VERSION
+        env:
+          ACTUAL: ${{ steps.action.outputs.RELEASE_VERSION }}
+        run: |
+          echo "actual RELEASE_VERSION: $ACTUAL"
+          if [ "$ACTUAL" != "2.5.0" ]; then
+            echo "FAIL: expected RELEASE_VERSION to be '2.5.0' (SNAPSHOT removed), got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"

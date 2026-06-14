@@ -1,0 +1,43 @@
+name: Test version from variable
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          version-source: variable
+          version: '1.2.3-SNAPSHOT'
+      - name: Assert CURRENT_VERSION
+        env:
+          ACTUAL: ${{ steps.action.outputs.CURRENT_VERSION }}
+        run: |
+          echo "actual CURRENT_VERSION: $ACTUAL"
+          if [ "$ACTUAL" != "1.2.3-SNAPSHOT" ]; then
+            echo "FAIL: expected CURRENT_VERSION to be '1.2.3-SNAPSHOT', got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+      - name: Assert RELEASE_VERSION
+        env:
+          ACTUAL: ${{ steps.action.outputs.RELEASE_VERSION }}
+        run: |
+          echo "actual RELEASE_VERSION: $ACTUAL"
+          if [ "$ACTUAL" != "1.2.3" ]; then
+            echo "FAIL: expected RELEASE_VERSION to be '1.2.3' (SNAPSHOT removed), got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+      - name: Assert NEXT_VERSION
+        env:
+          ACTUAL: ${{ steps.action.outputs.NEXT_VERSION }}
+        run: |
+          echo "actual NEXT_VERSION: $ACTUAL"
+          if [ -z "$ACTUAL" ]; then
+            echo "FAIL: expected NEXT_VERSION to be non-empty"
+            exit 1
+          fi
+          echo "PASS"
