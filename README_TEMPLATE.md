@@ -77,7 +77,7 @@ jobs:
           java-version: '8'
 
       - name: Generate versions
-        uses: HardNorth/github-version-generate@v1.4.0
+        uses: HardNorth/github-version-generate@v$LATEST_VERSION
         with:
           version-source: file
           version-file: gradle.properties
@@ -124,7 +124,7 @@ jobs:
           echo "::set-env name=VERSION_FRAGMENT::${versionFragment}"
 
       - name: Generate versions
-        uses: HardNorth/github-version-generate@v1.4.0
+        uses: HardNorth/github-version-generate@v$LATEST_VERSION
         with:
           version-source: file
           version-file: ${{ env.VERSION_FILE_NAME }}
@@ -228,7 +228,3 @@ Apache License Version 2.0 - [repo link](https://github.com/HardNorth/github-ver
 
 The action was created by [Vadzim Hushchanskou](https://github.com/HardNorth)
 at [HardNorth/github-version-generate](https://github.com/HardNorth/github-version-generate)
-
-## Privacy
-
-This Action contacts Chainguard's licensing server to verify authorization. Connection metadata (IP address, GitHub repository identifier, timestamp, and any metadata encoded in the auth token) is transmitted to Chainguard, Inc. even if authorization is denied in accordance with our [Privacy Notice](https://www.chainguard.dev/legal/privacy-notice)

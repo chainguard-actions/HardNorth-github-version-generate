@@ -1,0 +1,36 @@
+name: Test build metadata with datetime
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          version-source: variable
+          version: '3.0.0'
+          release-version-generate-build-metadata: 'true'
+          release-version-build-metadata-pattern: 'build.{date[YYYY-MM-DD]}'
+          release-version-build-metadata-datetime: '2024-06-15T12:00:00Z'
+      - name: Assert RELEASE_VERSION contains build metadata
+        env:
+          ACTUAL: ${{ steps.action.outputs.RELEASE_VERSION }}
+        run: |
+          echo "actual RELEASE_VERSION: $ACTUAL"
+          if [[ "$ACTUAL" != *"build.2024-06-15"* ]]; then
+            echo "FAIL: expected RELEASE_VERSION to contain 'build.2024-06-15', got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+      - name: Assert CURRENT_VERSION
+        env:
+          ACTUAL: ${{ steps.action.outputs.CURRENT_VERSION }}
+        run: |
+          echo "actual CURRENT_VERSION: $ACTUAL"
+          if [ "$ACTUAL" != "3.0.0" ]; then
+            echo "FAIL: expected CURRENT_VERSION='3.0.0', got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"

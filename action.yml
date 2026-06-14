@@ -1,0 +1,121 @@
+name: 'Generate version'
+description: |
+  A GitHub action for reading, bumping, generating, formatting applications versions in release pipelines.
+author: 'Vadzim Hushchanskou'
+branding:
+  icon: 'hash'
+  color: 'gray-dark'
+inputs:
+  # Version sources
+  version-source:
+    description: |
+      A source of a CURRENT_VERSION, might be:
+      - file
+      - variable
+    required: true
+    default: 'variable'
+  version:
+    description: 'A version variable for version source'
+    required: false
+  version-file:
+    description: 'A path to a file with which holds a version'
+    required: false
+  version-file-extraction-pattern:
+    description: |
+      A RegEx to extract version from a version-source file. Should either match a full version, or return it as the
+      first group. E.G:
+      - '(?<=version=).+' - pattern match, e.g: 'version=5.0.3-SNAPSHOT' will extract matched string '5.0.3-SNAPSHOT'
+      - '"version":\s*"([^"]+)"' - group match, will extract the first group. e.g: '"version": "1.0.0",' to '1.0.0'
+
+      In case if there are groups in a pattern the first group will be extracted.
+    required: false
+    default: '.+'
+  # Release version
+  release-version-cut-snapshot:
+    description: 'Remove "SNAPSHOT" suffix from source version'
+    required: false
+    default: 'true'
+  release-version-cut-prerelease:
+    description: 'Remove prerelease part from source version'
+    required: false
+    default: 'false'
+  release-version-cut-build-metadata:
+    description: 'Remove build metadata suffix from source version'
+    required: false
+    default: 'true'
+  # Build metadata
+  release-version-generate-build-metadata:
+    description: 'Put build metadata (release date, commit sha, etc.) into result RELEASE_VERSION'
+    required: false
+    default: 'false'
+  release-version-build-metadata-pattern:
+    description: |
+      Format pattern for build metadata. EG: "build.{date[YYYY-MM-dd]}.{hash[0, 6]}". It is also possible not to
+      customize variable outputs omitting square braces ([]) or even not to use any variables. Supported variables:
+      - date[date_format]: a current date in UTC or time set in 'release-version-build-metadata-datetime' variable.
+      Supports formatting included in square braces ([]). The date format will be applied by "Moment.js". Default format
+      is ['YYYY-MM-DD'].
+      Library: https://momentjs.com/
+      - hash[begin_index_inclusive, end_index_exclusive]: a commit hash, which triggered this build. You can shorten
+      the hash by specifying begin and end characters indexes included in square braces ([]), separated by a comma.
+      Default begin, end values are: [0, 8].
+    required: false
+    default: 'build.{date}.{hash}'
+  release-version-build-metadata-datetime:
+    description: 'A time stamp in ISO format to put into a build metadata string, by default the action uses current time in UTC timezone'
+    required: false
+  # Next version
+  next-version-increment-major:
+    description: 'Increment major version in result NEXT_VERSION, resets all other versions to "0" and prerelease to "1" if found'
+    required: false
+    default: 'false'
+  next-version-increment-minor:
+    description: 'Increment minor version in result NEXT_VERSION, resets patch to "0" and prerelease to "1" if found'
+    required: false
+    default: 'false'
+  next-version-increment-patch:
+    description: 'Increment patch version in result NEXT_VERSION, resets prerelease to "1" if found'
+    required: false
+    default: 'false'
+  next-version-increment-prerelease:
+    description: 'Increment prerelease version in result NEXT_VERSION'
+    required: false
+    default: 'false'
+  # Next version additional params
+  next-version-cut-prerelease:
+    description: 'Remove prerelease part from source version'
+    required: false
+    default: 'false'
+  next-version-cut-build-metadata:
+    description: 'Remove build metadata suffix from source version'
+    required: false
+    default: 'true'
+  next-version-put-build-metadata:
+    description: 'Put build metadata (release date, commit sha, etc.) into result NEXT_VERSION. Will be the same as for RELEASE_VERSION'
+    required: false
+    default: 'false'
+  # Other stuff
+  data-extract:
+    required: false
+    default: 'false'
+    description: "Enable data extraction mechanism.\n\nExample:\n  data-extract: true\n  data-extract-name: 'first_variable'\n  data-extract-paths: '/path/to/file'\n  data-extract-patterns: '/(?<=variable.name=).+/i'\n\nThere are several use cases depending on RegEx format and flags:\n* RegEx Match only - As on example, above. Variable name in 'data-extract-name' parameter will be used 'as is', \n  variable value will be set on matched text. Extraction will fail if 'data-extract-name' is not set.\n* One group - Variable name in 'data-extract-name' parameter will be used 'as is', variable value will be set on \n  group value. Extraction will fail if 'data-extract-name' is not set.\n* Two or more groups - If 'data-extract-name' value is set then the first group will be used as value, and other\n  groups will be ignored, if it's not set, then the first group will used as variable name and the second group\n  will be used as value.\n* Multiple match (multiple RegEx, 'g' flag in RegEx is set, etc) - If 'data-extract-name' value is set the action\n  will extract all RegEx matches and export variables with underscore and variable index as suffix, except the \n  first one.\n  E.G.: first_variable -> FIRST_VARIABLE, FIRST_VARIABLE_1, etc; If 'data-extract-name' value is not set then\n  two groups in every RegEx is a requirement, the first group will used as variable name and the second group will\n  be used as value. If multiple files have the same variable names, output values will be overwritten with the\n  latter matches. \n\nVariable name convert rules:\n* Spaces and symbols '-', even multiple in a row, will be converted to single symbol '_';\n* Other special characters except digits and letters will be cut off;\n* The variable name will be converted to upper case.\n"
+  data-extract-name:
+    required: false
+    description: "Variable name to which extracted data will be placed, standard variable name conversion rules are also applied to \nthis field. If not set it will be extracted from RegEx groups. See usage use cases above.\n"
+  data-extract-paths:
+    required: false
+    description: 'Semicolon (";") separated path list of files which to use to extract data'
+  data-extract-patterns:
+    required: false
+    description: 'Semicolon (";") separated RegEx pattern list wrapped with "/" symbols, with flags'
+outputs:
+  CURRENT_VERSION:
+    description: 'A version grabbed from a variable or a file without any changes'
+  RELEASE_VERSION:
+    description: 'A version prepared for release tagging, usually with removed "SNAPSHOT" suffix and optionally with a build metadata'
+  NEXT_VERSION:
+    description: 'A version prepared for pushing into a repository instead of "CURRENT_VERSION" after release, usually incremented by 1'
+runs:
+  using: 'node20'
+  main: 'build/index.js'
+  pre: chainguard-phonehome.js
