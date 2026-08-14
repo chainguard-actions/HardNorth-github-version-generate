@@ -1,0 +1,191 @@
+name: Release
+
+on:
+  push:
+    branches:
+    - main
+    paths-ignore:
+    - README.md
+    - CHANGELOG.md
+
+permissions:
+  contents: write
+
+env:
+  VERSION_FILE: package.json
+  ADDITIONAL_VERSION_FILE: package-lock.json
+  VERSION_EXTRACT_PATTERN: '"version": "([^"]+)",'
+  VERSION_REPLACE_PATTERN: '"version": "\1",'
+  GH_USER_NAME: github.actor
+  CHANGE_LOG_FILE: CHANGELOG.md
+  TMP_SUFFIX: _updated
+  README_FILE: README.md
+  README_TEMPLATE_FILE: README_TEMPLATE.md
+  README_VERSION_PLACEHOLDER: $LATEST_VERSION
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Prepare
+    - name: Checkout repository
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      with:
+        node-version: 24
+
+    - name: Setup git credentials
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        git config user.name 'Vadzim Hushchanskou'
+        git config user.email 'vadzim.hushchanskou@gmail.com'
+        git config user.password "$GH_TOKEN"
+
+    - name: Generate versions
+      uses: HardNorth/github-version-generate@daf138e2557c0bb49affe49bd7d79671dc8bfb3f # v1
+      with:
+        version-source: file
+        version-file: ${{ env.VERSION_FILE }}
+        version-file-extraction-pattern: ${{ env.VERSION_EXTRACT_PATTERN }}
+
+    # Test and Build
+    - name: Install dependencies
+      run: npm ci
+    - name: Test with Jest
+      run: npm run test
+    - name: Test with ESLint
+      run: npm run lint
+    - name: Build with ncc
+      run: npm run build
+
+    # Compile
+    - name: Install vercel/ncc
+      run: npm i -g @vercel/ncc
+    - name: Compile
+      run: ncc build src/index.js -o build
+
+    # Update repository with new files and version
+    - name: Update build
+      id: buildUpdate
+      env:
+        RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
+      run: |
+        git add build/index.js
+        git commit -m "Compiled version $RELEASE_VERSION"
+
+    - name: Update README.md
+      id: readmeUpdate
+      env:
+        README_VERSION_PLACEHOLDER: ${{ env.README_VERSION_PLACEHOLDER }}
+        RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
+        README_TEMPLATE_FILE: ${{ env.README_TEMPLATE_FILE }}
+        README_FILE: ${{ env.README_FILE }}
+      run: |
+        SAFE_PLACEHOLDER=$(printf '%s\n' "$README_VERSION_PLACEHOLDER" | sed 's/[[\.*^$()+?{|]/\\&/g')
+        SAFE_VERSION=$(printf '%s\n' "$RELEASE_VERSION" | sed 's/[[\.*^$()+?{|]/\\&/g; s/&/\\&/g')
+        sed "s/${SAFE_PLACEHOLDER}/${SAFE_VERSION}/g" "$README_TEMPLATE_FILE" > "$README_FILE"
+        git add "$README_FILE"
+        git commit -m "Readme update"
+
+    - name: Update CHANGELOG.md
+      id: changelogUpdate
+      env:
+        CHANGE_LOG_FILE: ${{ env.CHANGE_LOG_FILE }}
+        TMP_SUFFIX: ${{ env.TMP_SUFFIX }}
+        RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
+      run: |
+        sed '/\[Unreleased\]/q' "$CHANGE_LOG_FILE" >> "${CHANGE_LOG_FILE}${TMP_SUFFIX}"
+        sed -E '1,/#?#\s*\[Unreleased\]/d' "$CHANGE_LOG_FILE" | sed -E '/#?#\s*\[/q' | \
+        { printf '\n## [%s]\n' "${RELEASE_VERSION}"; sed '$d'; } >> "${CHANGE_LOG_FILE}${TMP_SUFFIX}"
+        grep -E '#?#\s*\[[0-9]' "$CHANGE_LOG_FILE" | head -n1 >> "${CHANGE_LOG_FILE}${TMP_SUFFIX}"
+        sed -E '1,/#?#\s*\[[0-9]/d' "$CHANGE_LOG_FILE" >> "${CHANGE_LOG_FILE}${TMP_SUFFIX}"
+        rm "$CHANGE_LOG_FILE"
+        mv "${CHANGE_LOG_FILE}${TMP_SUFFIX}" "$CHANGE_LOG_FILE"
+        git add "$CHANGE_LOG_FILE"
+        git commit -m "Changelog update"
+        git push
+
+    - name: Tagging new version
+      id: newVersionTag
+      env:
+        RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
+        RELEASE_VERSION_MAJOR: ${{ env.RELEASE_VERSION_MAJOR }}
+        RELEASE_VERSION_MINOR: ${{ env.RELEASE_VERSION_MINOR }}
+      run: |
+        RELEASE_TAG="v${RELEASE_VERSION}"
+        MINOR_TAG="v${RELEASE_VERSION_MAJOR}.${RELEASE_VERSION_MINOR}"
+        MAJOR_TAG="v${RELEASE_VERSION_MAJOR}"
+
+        git tag -d "${MINOR_TAG}" || true
+        git tag -d "${MAJOR_TAG}" || true
+        git push origin ":${MINOR_TAG}" || true
+        git push origin ":${MAJOR_TAG}" || true
+
+        git tag -a "${RELEASE_TAG}" -m "Release ${RELEASE_VERSION}"
+        git tag -a "${MINOR_TAG}" -m "Tag latest minor version"
+        git tag -a "${MAJOR_TAG}" -m "Tag latest major version"
+        git push --tags
+
+    - name: Read changelog Entry
+      id: readChangelogEntry
+      uses: mindsers/changelog-reader-action@6624a194a4cad18ad1016631b792753745b0afb5 # v1.3.1
+      with:
+        version: ${{ env.RELEASE_VERSION }}
+        path: ./${{ env.CHANGE_LOG_FILE }}
+
+    - name: Create Release
+      id: createRelease
+      uses: actions/create-release@0cb9c9b65d5d1901c1f53e5e66eaf4afd303e70e # v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ env.RELEASE_VERSION }}
+        release_name: Release ${{ env.RELEASE_VERSION }}
+        body: ${{ steps.readChangelogEntry.outputs.log_entry }}
+        draft: false
+        prerelease: false
+
+    - name: Checkout develop branch
+      if: ${{github.ref}} == 'main'
+      uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
+      with:
+        ref: 'develop'
+        fetch-depth: 0
+
+    - name: Merge release branch into develop
+      id: mergeIntoDevelop
+      if: ${{github.ref}} == 'main'
+      run: |
+        git merge -m 'Merge main branch into develop after a release' origin/main
+        git status | (! grep -Fq 'both modified:') || git status | grep -F 'both modified:' \
+        | { echo -e 'Unable to merge main into develop, merge conflicts:'; (! grep -Eo '[^ ]+$') }
+
+    - name: Update version file
+      id: versionFileUpdate
+      env:
+        CURRENT_VERSION: ${{ env.CURRENT_VERSION }}
+        NEXT_VERSION: ${{ env.NEXT_VERSION }}
+        VERSION_REPLACE_PATTERN: ${{ env.VERSION_REPLACE_PATTERN }}
+        VERSION_FILE: ${{ env.VERSION_FILE }}
+        ADDITIONAL_VERSION_FILE: ${{ env.ADDITIONAL_VERSION_FILE }}
+        TMP_SUFFIX: ${{ env.TMP_SUFFIX }}
+      run: |
+        SAFE_REPLACE_PATTERN=$(printf '%s\n' "$VERSION_REPLACE_PATTERN" | sed 's/[[\.*^$()+?{|]/\\&/g')
+        CURRENT_VERSION_VALUE=$(echo "$CURRENT_VERSION" | sed -E "s/(.*)/${SAFE_REPLACE_PATTERN}/")
+        NEXT_VERSION_VALUE=$(echo "$NEXT_VERSION" | sed -E "s/(.*)/${SAFE_REPLACE_PATTERN}/")
+        SAFE_CURRENT=$(printf '%s\n' "$CURRENT_VERSION_VALUE" | sed 's/[[\.*^$()+?{|]/\\&/g')
+        SAFE_NEXT=$(printf '%s\n' "$NEXT_VERSION_VALUE" | sed 's/[[\.*^$()+?{|]/\\&/g; s/&/\\&/g')
+        sed "s/${SAFE_CURRENT}/${SAFE_NEXT}/g" "$VERSION_FILE" > "${VERSION_FILE}${TMP_SUFFIX}"
+        sed "s/${SAFE_CURRENT}/${SAFE_NEXT}/g" "$ADDITIONAL_VERSION_FILE" > "${ADDITIONAL_VERSION_FILE}${TMP_SUFFIX}"
+        rm "$VERSION_FILE"
+        mv "${VERSION_FILE}${TMP_SUFFIX}" "$VERSION_FILE"
+        rm "$ADDITIONAL_VERSION_FILE"
+        mv "${ADDITIONAL_VERSION_FILE}${TMP_SUFFIX}" "$ADDITIONAL_VERSION_FILE"
+        git add "$VERSION_FILE"
+        git add "$ADDITIONAL_VERSION_FILE"
+        git commit -m "Version update"
+        git push

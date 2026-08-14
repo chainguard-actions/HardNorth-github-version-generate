@@ -1,4 +1,4 @@
-name: Test build metadata with custom datetime
+name: Test build metadata generation
 on:
   workflow_dispatch:
 jobs:
@@ -10,28 +10,22 @@ jobs:
         uses: .
         with:
           version-source: variable
-          version: '4.0.0-SNAPSHOT'
+          version: '3.0.0-SNAPSHOT'
           release-version-generate-build-metadata: 'true'
-          release-version-build-metadata-pattern: 'build.{date[YYYY-MM-DD]}.{hash[0,6]}'
-          release-version-build-metadata-datetime: '2024-06-15T12:00:00Z'
-      - name: Assert RELEASE_VERSION contains build metadata with custom date
+          release-version-build-metadata-pattern: 'build.{date}.{hash}'
+      - name: Assert RELEASE_VERSION contains build metadata
         env:
           ACTUAL: ${{ steps.action.outputs.RELEASE_VERSION }}
         run: |
           echo "actual RELEASE_VERSION: $ACTUAL"
           # Should start with the base version and contain '+' for build metadata
-          if [[ "$ACTUAL" != 4.0.0+* ]]; then
-            echo "FAIL: expected RELEASE_VERSION to start with '4.0.0+' but got '$ACTUAL'"
+          if [[ "$ACTUAL" != 3.0.0+* ]]; then
+            echo "FAIL: expected RELEASE_VERSION to start with '3.0.0+' but got '$ACTUAL'"
             exit 1
           fi
           # Should contain 'build.' in the metadata
           if [[ "$ACTUAL" != *build.* ]]; then
             echo "FAIL: expected RELEASE_VERSION to contain 'build.' but got '$ACTUAL'"
-            exit 1
-          fi
-          # Should contain the custom date '2024-06-15' in the metadata
-          if [[ "$ACTUAL" != *2024-06-15* ]]; then
-            echo "FAIL: expected RELEASE_VERSION to contain '2024-06-15' but got '$ACTUAL'"
             exit 1
           fi
           echo "PASS"
@@ -40,8 +34,8 @@ jobs:
           ACTUAL: ${{ steps.action.outputs.CURRENT_VERSION }}
         run: |
           echo "actual CURRENT_VERSION: $ACTUAL"
-          if [ "$ACTUAL" != "4.0.0-SNAPSHOT" ]; then
-            echo "FAIL: expected '4.0.0-SNAPSHOT' but got '$ACTUAL'"
+          if [ "$ACTUAL" != "3.0.0-SNAPSHOT" ]; then
+            echo "FAIL: expected '3.0.0-SNAPSHOT' but got '$ACTUAL'"
             exit 1
           fi
           echo "PASS"

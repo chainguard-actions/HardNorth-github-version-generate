@@ -1,4 +1,4 @@
-name: Test data extraction feature
+name: Test version from file
 on:
   workflow_dispatch:
 jobs:
@@ -6,20 +6,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Create data file for extraction
+      - name: Create version file
         run: |
-          mkdir -p /tmp/data-extract-test
-          echo "app.version=2.5.0" > /tmp/data-extract-test/sample.properties
-          echo "app.name=my-application" >> /tmp/data-extract-test/sample.properties
+          echo "version=2.5.0-SNAPSHOT" > /tmp/version.properties
       - id: action
         uses: .
         with:
-          version-source: variable
-          version: '2.5.0-SNAPSHOT'
-          data-extract: 'true'
-          data-extract-name: 'APP_VERSION'
-          data-extract-paths: '/tmp/data-extract-test/sample.properties'
-          data-extract-patterns: '/(?<=app.version=).+/i'
+          version-source: file
+          version-file: /tmp/version.properties
+          version-file-extraction-pattern: '(?<=version=).+'
       - name: Assert CURRENT_VERSION
         env:
           ACTUAL: ${{ steps.action.outputs.CURRENT_VERSION }}

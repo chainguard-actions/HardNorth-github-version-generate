@@ -1,0 +1,42 @@
+name: Test version from JSON file with group extraction
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Create JSON version file
+        run: |
+          cat > /tmp/package.json << 'EOF'
+          {
+            "name": "my-app",
+            "version": "4.1.2"
+          }
+          EOF
+      - id: version
+        uses: .
+        with:
+          version-source: file
+          version-file: /tmp/package.json
+          version-file-extraction-pattern: '"version":\s*"([^"]+)"'
+      - name: Assert CURRENT_VERSION extracted from JSON
+        env:
+          ACTUAL: ${{ steps.version.outputs.CURRENT_VERSION }}
+        run: |
+          echo "CURRENT_VERSION: $ACTUAL"
+          if [ "$ACTUAL" != "4.1.2" ]; then
+            echo "FAIL: expected '4.1.2', got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+      - name: Assert RELEASE_VERSION
+        env:
+          ACTUAL: ${{ steps.version.outputs.RELEASE_VERSION }}
+        run: |
+          echo "RELEASE_VERSION: $ACTUAL"
+          if [ "$ACTUAL" != "4.1.2" ]; then
+            echo "FAIL: expected '4.1.2', got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
