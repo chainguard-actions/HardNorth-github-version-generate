@@ -10,28 +10,28 @@ jobs:
         uses: .
         with:
           version-source: variable
-          version: '4.1.0'
+          version: '1.0.0'
           data-extract: 'true'
-          data-extract-name: 'BUILD_NUMBER'
-          data-extract-paths: '${{ github.workspace }}/actions/hardened/HardNorth--github-version-generate/v1.4.0/tests/fixtures/data-extract.properties'
-          data-extract-patterns: '/(?<=build.number=).+/i'
-      - name: Assert CURRENT_VERSION
+          data-extract-name: 'app_name'
+          data-extract-paths: '${{ github.workspace }}/tests/fixtures/app.properties'
+          data-extract-patterns: '/(?<=app\.name=).+/i'
+      - name: Assert CURRENT_VERSION is set
         env:
           ACTUAL: ${{ steps.action.outputs.CURRENT_VERSION }}
         run: |
           echo "actual CURRENT_VERSION: $ACTUAL"
-          if [ "$ACTUAL" != "4.1.0" ]; then
-            echo "FAIL: expected CURRENT_VERSION='4.1.0', got '$ACTUAL'"
+          if [ "$ACTUAL" != "1.0.0" ]; then
+            echo "FAIL: expected '1.0.0', got '$ACTUAL'"
             exit 1
           fi
           echo "PASS"
-      - name: Assert extracted BUILD_NUMBER output
+      - name: Assert extracted data output exists
         env:
-          ACTUAL: ${{ steps.action.outputs.BUILD_NUMBER }}
+          APP_NAME: ${{ steps.action.outputs.APP_NAME }}
         run: |
-          echo "actual BUILD_NUMBER: $ACTUAL"
-          if [ "$ACTUAL" != "42" ]; then
-            echo "FAIL: expected BUILD_NUMBER='42', got '$ACTUAL'"
+          echo "actual APP_NAME: $APP_NAME"
+          if [ "$APP_NAME" != "MyApplication" ]; then
+            echo "FAIL: expected 'MyApplication', got '$APP_NAME'"
             exit 1
           fi
           echo "PASS"

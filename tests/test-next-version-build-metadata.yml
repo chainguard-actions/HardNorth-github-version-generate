@@ -1,0 +1,50 @@
+name: Test next version with build metadata
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          version-source: variable
+          version: '2.0.0-SNAPSHOT'
+          next-version-increment-patch: 'true'
+          next-version-put-build-metadata: 'true'
+          release-version-generate-build-metadata: 'true'
+          release-version-build-metadata-pattern: 'build.{date}.{hash}'
+      - name: Assert CURRENT_VERSION unchanged
+        env:
+          ACTUAL: ${{ steps.action.outputs.CURRENT_VERSION }}
+        run: |
+          echo "actual CURRENT_VERSION: $ACTUAL"
+          if [ "$ACTUAL" != "2.0.0-SNAPSHOT" ]; then
+            echo "FAIL: expected '2.0.0-SNAPSHOT', got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+      - name: Assert RELEASE_VERSION has build metadata
+        env:
+          ACTUAL: ${{ steps.action.outputs.RELEASE_VERSION }}
+        run: |
+          echo "actual RELEASE_VERSION: $ACTUAL"
+          if echo "$ACTUAL" | grep -qE '^2\.0\.0\+build\.'; then
+            echo "PASS: RELEASE_VERSION=$ACTUAL"
+          else
+            echo "FAIL: expected RELEASE_VERSION to match '2.0.0+build.*', got '$ACTUAL'"
+            exit 1
+          fi
+      - name: Assert NEXT_VERSION patch incremented with build metadata
+        env:
+          ACTUAL: ${{ steps.action.outputs.NEXT_VERSION }}
+        run: |
+          echo "actual NEXT_VERSION: $ACTUAL"
+          # Patch incremented: 2.0.0 -> 2.0.1, prerelease may remain, with build metadata
+          if echo "$ACTUAL" | grep -qE '^2\.0\.1.*\+build\.'; then
+            echo "PASS: NEXT_VERSION=$ACTUAL"
+          else
+            echo "FAIL: expected NEXT_VERSION to match '2.0.1*+build.*', got '$ACTUAL'"
+            exit 1
+          fi

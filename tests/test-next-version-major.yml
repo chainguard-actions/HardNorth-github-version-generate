@@ -1,0 +1,36 @@
+name: Test next version major increment
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          version-source: variable
+          version: '2.3.4'
+          next-version-increment-major: 'true'
+      - name: Assert CURRENT_VERSION unchanged
+        env:
+          ACTUAL: ${{ steps.action.outputs.CURRENT_VERSION }}
+        run: |
+          echo "actual CURRENT_VERSION: $ACTUAL"
+          if [ "$ACTUAL" != "2.3.4" ]; then
+            echo "FAIL: expected '2.3.4', got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+      - name: Assert NEXT_VERSION major incremented (minor and patch reset to 0)
+        env:
+          ACTUAL: ${{ steps.action.outputs.NEXT_VERSION }}
+        run: |
+          echo "actual NEXT_VERSION: $ACTUAL"
+          # Major incremented: 2.3.4 -> 3.0.0
+          if echo "$ACTUAL" | grep -qE '^3\.0\.0'; then
+            echo "PASS: NEXT_VERSION=$ACTUAL"
+          else
+            echo "FAIL: expected NEXT_VERSION to start with '3.0.0', got '$ACTUAL'"
+            exit 1
+          fi

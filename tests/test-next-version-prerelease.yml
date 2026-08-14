@@ -1,0 +1,37 @@
+name: Test next version prerelease increment
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          version-source: variable
+          version: '1.0.0-alpha.3'
+          release-version-cut-snapshot: 'false'
+          next-version-increment-prerelease: 'true'
+      - name: Assert CURRENT_VERSION unchanged
+        env:
+          ACTUAL: ${{ steps.action.outputs.CURRENT_VERSION }}
+        run: |
+          echo "actual CURRENT_VERSION: $ACTUAL"
+          if [ "$ACTUAL" != "1.0.0-alpha.3" ]; then
+            echo "FAIL: expected '1.0.0-alpha.3', got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+      - name: Assert NEXT_VERSION prerelease incremented
+        env:
+          ACTUAL: ${{ steps.action.outputs.NEXT_VERSION }}
+        run: |
+          echo "actual NEXT_VERSION: $ACTUAL"
+          # Prerelease incremented: 1.0.0-alpha.3 -> 1.0.0-alpha.4
+          if echo "$ACTUAL" | grep -qE '^1\.0\.0-alpha\.4'; then
+            echo "PASS: NEXT_VERSION=$ACTUAL"
+          else
+            echo "FAIL: expected NEXT_VERSION to start with '1.0.0-alpha.4', got '$ACTUAL'"
+            exit 1
+          fi
